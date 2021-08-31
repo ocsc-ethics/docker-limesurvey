@@ -1,0 +1,55 @@
+version: '3'
+services:
+  db:
+    image: mariadb:10.6
+    container_name: db
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./db:/var/lib/mysql
+    environment:
+      - MARIADB_ROOT_PASSWORD=rootpasswd
+      - MARIADB_DATABASE=surveydb
+      - MARIADB_USER=surveyuser
+      - MARIADB_PASSWORD=surveypasswd
+    restart: always
+  dbadmin:
+    container_name: dbadmin
+    image: phpmyadmin/phpmyadmin:5.1.1
+    depends_on:
+      - db
+    links:
+      - db:db
+    restart: always
+
+  limesurvey:
+    container_name: limesurvey
+    build:
+      context: .
+      dockerfile: phpfpm/Dockerfile
+    ports:
+      - '9000:9000'
+    volumes:
+      - ./phpfpm/php.ini-production:/usr/local/etc/php/php.ini
+      - ./phpfpm/php-fpm.conf:/usr/local/etc/php-fpm.conf
+      - ./phpfpm/www.conf:/usr/local/etc/php-fpm.d/www.conf
+      - ./limesurvey5:/var/www/html
+    links:
+      - db:db
+    restart: always
+
+  proxy:
+    image: nginx:1.21
+    container_name: proxy
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+      - ./logs/nginx:/var/log/nginx
+      - ./limesurvey5:/var/www/html
+      - ./certs:/etc/letsencrypt
+      - ./certs-data:/data/letsencrypt
+    links:
+      - limesurvey
+    restart: always
